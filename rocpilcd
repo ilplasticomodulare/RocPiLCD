@@ -1,0 +1,34 @@
+#! /bin/sh
+# /etc/init.d/rocpilcd 
+
+### BEGIN INIT INFO
+# Provides:          rocpilcd
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Show Rocrail on Raspberry Pi info in Adafruit LCD Shield
+# Description:       This script run rocpilcd at startup same as a daemon
+### END INIT INFO
+
+# If you want a command to always run, put it here
+
+SCRIPT_DIR = '/home/pi/scripts/'
+case "$1" in
+  start)
+    echo "Starting RocPiLCD"
+    # run application you want to start
+    ${SCRIPT_DIR}rocpilcd &
+    ;;
+  stop)
+    echo "Stopping RocPiLCD"
+    # kill application you want to stop
+    killall rocpilcd
+    ;;
+  *)
+    echo "Usage: /etc/init.d/rocpilcd {start|stop}"
+    exit 1
+    ;;
+esac
+
+exit 0
