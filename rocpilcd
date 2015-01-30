@@ -1,5 +1,4 @@
-#! /bin/sh
-# /etc/init.d/rocpilcd 
+#! /bin/sh 
 
 ### BEGIN INIT INFO
 # Provides:          rocpilcd
@@ -13,17 +12,16 @@
 
 # If you want a command to always run, put it here
 
-SCRIPT_DIR = '/home/pi/scripts/'
 case "$1" in
   start)
     echo "Starting RocPiLCD"
     # run application you want to start
-    ${SCRIPT_DIR}rocpilcd &
+    /home/pi/scripts/rocpilcd.py &
     ;;
   stop)
     echo "Stopping RocPiLCD"
     # kill application you want to stop
-    killall rocpilcd
+    killall rocpilcd.py
     ;;
   *)
     echo "Usage: /etc/init.d/rocpilcd {start|stop}"

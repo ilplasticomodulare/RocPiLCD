@@ -44,7 +44,7 @@ rpi_auto = "OFF"
 rpi_server_name = 'rocrail'                                    
 rpi_server_status = False 
 rpi_socket_created = False 
-
+rpi_conn_active = False 
 
 
 #Ottiene il PID dal nome del processo, imposta la variabile globale process a true se esite.
@@ -66,19 +66,21 @@ def pid_from_name(name):
 def parse_socket(socket_received): 
    global rpi_power 
    global rpi_auto 
-   if string.find(socket_received,"Global power ON") <> -1 or string.find(socket_received,"<state power=\"true\"") <> -1 :
+   if string.find(socket_received,"Global power ON") <> -1 or string.find(socket_received,"power=\"true\"") <> -1: #or string.find(socket_received,"<exception text=\"Power ON\"") <> -1:
       rpi_power = "ON"
-      return 
-   if string.find(socket_received,"Global power OFF") <> -1 or string.find(socket_received,"<state power=\"false\"") <> -1 :
-      rpi_power = "OFF"	  
-      return
-   if string.find(socket_received,"Automatic mode is on.") <> -1 or string.find(socket_received,"<auto cmd=\"on\"/>") <> -1:
+      #print "Setting rpi_power = " + rpi_power
+      
+   if string.find(socket_received,"Global power OFF") <> -1 or string.find(socket_received,"power=\"false\"") <> -1: #or string.find(socket_received,"<exception text=\"Power OFF\"") <> -1:
+      rpi_power = "OFF"	
+      #print "Setting rpi_power = " + rpi_power    
+      
+   if string.find(socket_received,"Automatic mode is on.") <> -1 or string.find(socket_received,"<auto cmd=\"on\"") <> -1:
       rpi_auto = "ON"	  
-      return
-   if string.find(socket_received,"Automatic mode is off.") <> -1  or string.find(socket_received,"<auto cmd=\"off\"/>") <> -1:
+     
+   if string.find(socket_received,"Automatic mode is off.") <> -1  or string.find(socket_received,"<auto cmd=\"off\"") <> -1:
       rpi_auto = "OFF"	  
-      return
-	  
+      
+  
 	  
 # compone il messaggio con gli header da inviare al server
 def sendMsg( s, xmlType, xmlMsg ):
@@ -113,11 +115,13 @@ try:
   #Richiede il plan completo
   rrMsg = "<model cmd=\"plan\"/>"
   sendMsg( s, "model", rrMsg )
+  rpi_conn_active=True 
 
 except socket.error as err:
   #print err
   if err.errno == errno.ECONNREFUSED:
     rpi_stat = "No Conn"
+    rpi_conn_active=False 
          
 
 # Imposta il ritardo per la esecuzione di comandi nel ciclo infinito, vengono eseguiti ogni 2 secondi.
@@ -133,9 +137,9 @@ while True:
    
    #rimane in ascolto con un socket non bloccante e analizza le risposte
    try:
-      r_request = s.recv(4096)
+      r_request = s.recv(12288)
       parse_socket(r_request)
-      #print r_request
+      print r_request
    except socket.error, e:
       err = e.args[0]
       if err == errno.EAGAIN or err == errno.EWOULDBLOCK:
@@ -143,7 +147,7 @@ while True:
       else:
          # a "real" error occurred
          print e
-         sys.exit(1)
+         #sys.exit(1)
    
   #Controlla lo stato dei pulsanti e invia i comandi relativi al server RR
    for button in buttons:
@@ -155,27 +159,26 @@ while True:
               if rpi_power == "ON":
                  rrMsg = "<sys cmd=\"stop\"/>"
                  sendMsg( s, "sys", rrMsg )
-                 #print "Power OFF"
+                 print "Power OFF"
               elif rpi_power == "OFF":
                  rrMsg = "<sys cmd=\"go\"/>"
                  sendMsg( s, "sys", rrMsg )
-                 #print "Power ON"
+                 print "Power ON"
            if button[1] == "_AUTO":
               print "btn Auto"
               if rpi_auto == "ON":
                  rrMsg = "<auto cmd=\"off\"/>"
                  sendMsg( s, "auto", rrMsg )
-                 #print "auto OFF"
+                 print "auto OFF"
               elif rpi_auto == "OFF":
                  rrMsg = "<auto cmd=\"on\"/>"
                  sendMsg( s, "auto", rrMsg )
-                 #print "Auto ON"
+                 print "Auto ON"
            if button[1] == "_EBREAK":
               rrMsg = "<sys cmd=\"ebreak\"/>"
               sendMsg( s, "sys", rrMsg )
               print "Ebreak"
-       
-      time.sleep(1)
+           time.sleep(1)
    
 # Aggiornamento visualizzazione LCD
    
@@ -184,12 +187,24 @@ while True:
       if process == True:
          rpi_stat = rpi_SERVERUP
          rpi_server_status=True
+         if rpi_conn_active==False:
+            print "Activate connection.."
+            s.connect(('localhost', 8051))
+            fcntl.fcntl(s, fcntl.F_SETFL, os.O_NONBLOCK)
+            rpi_conn_active = True 
       else:
          rpi_stat = rpi_SERVERDOWN
          rpi_server_status=False
+         if rpi_conn_active==True:
+            print "Shutdown Connection.."
+            rpi_conn_active = False
+            s.close()
+            
+            
       
-      LCDmessage = "Rocrail {0}\nDCC {1} Auto {2}".format(rpi_stat,rpi_power,rpi_auto)
+     
       lcd.clear()
+      LCDmessage = "Rocrail {0}\nDCC {1} Auto {2}".format(rpi_stat,rpi_power,rpi_auto)
       lcd.message(LCDmessage)
       delay = current + 2
       #print LCDmessage
